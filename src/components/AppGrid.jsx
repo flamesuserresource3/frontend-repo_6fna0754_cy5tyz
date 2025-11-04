@@ -1,7 +1,13 @@
 import { motion } from 'framer-motion';
 import { Download, Package, FileArchive } from 'lucide-react';
 
-export default function AppGrid({ t, apps }) {
+export default function AppGrid({ t, apps, baseUrl }) {
+  const makeUrl = (u) => {
+    if (!u) return null;
+    if (u.startsWith('http')) return u;
+    return `${baseUrl}${u}`;
+  };
+
   return (
     <section id="apps" className="relative py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -41,9 +47,7 @@ export default function AppGrid({ t, apps }) {
 
                 <div className="mt-4 flex items-center gap-3">
                   <a
-                    href={app.apkUrl || '#'}
-                    download
-                    onClick={(e) => { if (!app.apkUrl) e.preventDefault(); }}
+                    href={makeUrl(app.apkUrl) || '#'}
                     className={`flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl font-medium transition ${
                       app.apkUrl
                         ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30'
@@ -53,9 +57,7 @@ export default function AppGrid({ t, apps }) {
                     <Download className="w-4 h-4" /> APK
                   </a>
                   <a
-                    href={app.zipUrl || '#'}
-                    download
-                    onClick={(e) => { if (!app.zipUrl) e.preventDefault(); }}
+                    href={makeUrl(app.zipUrl) || '#'}
                     className={`flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl font-medium transition ${
                       app.zipUrl
                         ? 'bg-white/10 border border-white/10 text-white/90 hover:bg-white/15'
@@ -68,7 +70,7 @@ export default function AppGrid({ t, apps }) {
 
                 <div className="mt-3 text-[11px] text-white/50">
                   {t('published')}{' '}
-                  {new Date(app.createdAt).toLocaleDateString()}
+                  {app.createdAt ? new Date(app.createdAt).toLocaleDateString() : ''}
                 </div>
               </motion.div>
             ))}

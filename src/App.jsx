@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import UploadSection from './components/UploadSection';
@@ -13,7 +13,7 @@ const translations = {
     cta_browse: 'Sfoglia app',
     search_placeholder: 'Cerca app...',
     upload_title: 'Carica la tua applicazione',
-    upload_subtitle: 'Importa i tuoi APK/ZIP in modo privato e sicuro (demo locale — nessuna persistenza).',
+    upload_subtitle: 'Importa i tuoi APK/ZIP in modo privato e sicuro. Persistenza lato server attiva.',
     app_name: 'Nome applicazione',
     description: 'Descrizione',
     upload_btn: 'Carica',
@@ -23,7 +23,7 @@ const translations = {
     apps_subtitle: 'Scarica direttamente APK o ZIP. Usa la ricerca per filtrare.',
     no_apps: 'Nessuna app caricata al momento. Inizia caricando la tua! ',
     published: 'Pubblicata il',
-    footer_text: 'Progetto dimostrativo. Integrazione upload/download lato server in arrivo.'
+    footer_text: 'NotApkStore — upload e download sicuri. '
   },
   en: {
     tagline: 'Secure uploads. Direct downloads.',
@@ -33,7 +33,7 @@ const translations = {
     cta_browse: 'Browse apps',
     search_placeholder: 'Search apps...',
     upload_title: 'Upload your application',
-    upload_subtitle: 'Import your APK/ZIP privately and securely (local demo — no persistence).',
+    upload_subtitle: 'Import your APK/ZIP securely. Server persistence enabled.',
     app_name: 'Application name',
     description: 'Description',
     upload_btn: 'Upload',
@@ -43,7 +43,7 @@ const translations = {
     apps_subtitle: 'Download APK or ZIP directly. Use search to filter.',
     no_apps: 'No apps yet. Start by uploading yours! ',
     published: 'Published on',
-    footer_text: 'Demo project. Server-side upload/download integration coming next.'
+    footer_text: 'NotApkStore — secure uploads and direct downloads.'
   }
 };
 
@@ -51,23 +51,32 @@ export default function App() {
   const [lang, setLang] = useState('it');
   const t = (key) => translations[lang][key] ?? key;
 
-  const [apps, setApps] = useState(() => [
-    {
-      id: 'demo1',
-      name: 'Demo Secure App',
-      description: 'Esempio di app. Sostituisci con i tuoi pacchetti sicuri.',
-      apkUrl: '',
-      zipUrl: '',
-      createdAt: new Date().toISOString(),
-    },
-  ]);
+  const baseUrl =
+    import.meta.env.VITE_BACKEND_URL ||
+    (typeof window !== 'undefined'
+      ? window.location.origin.replace(':3000', ':8000')
+      : 'https://notapkstore.com');
 
+  const [apps, setApps] = useState([]);
   const [search, setSearch] = useState('');
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return apps.filter((a) => a.name.toLowerCase().includes(q) || (a.description || '').toLowerCase().includes(q));
-  }, [apps, search]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const q = search ? `?q=${encodeURIComponent(search)}` : '';
+        const res = await fetch(`${baseUrl}/apps${q}`, { signal: controller.signal });
+        const data = await res.json();
+        setApps(Array.isArray(data.items) ? data.items : []);
+      } catch (e) {
+        // ignore fetch errors on unmount
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [baseUrl, search]);
+
+  const filtered = useMemo(() => apps, [apps]);
 
   const handleAddApp = (app) => {
     setApps((prev) => [app, ...prev]);
@@ -83,8 +92,8 @@ export default function App() {
       <Navbar lang={lang} setLang={setLang} search={search} setSearch={setSearch} t={t} />
       <main>
         <Hero t={t} />
-        <UploadSection t={t} onAddApp={handleAddApp} />
-        <AppGrid t={t} apps={filtered} />
+        <UploadSection t={t} onAddApp={handleAddApp} baseUrl={baseUrl} />
+        <AppGrid t={t} apps={filtered} baseUrl={baseUrl} />
       </main>
 
       <footer className="mt-8 py-8">

@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { UploadCloud, FileArchive, FileType } from 'lucide-react';
 
-export default function UploadSection({ t, onAddApp }) {
+export default function UploadSection({ t, onAddApp, baseUrl }) {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [apkFile, setApkFile] = useState(null);
@@ -10,31 +10,37 @@ export default function UploadSection({ t, onAddApp }) {
   const [status, setStatus] = useState('idle');
   const formRef = useRef(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name || !apkFile) {
       setStatus('error');
       return;
     }
 
-    const newApp = {
-      id: Date.now().toString(),
-      name,
-      description: desc,
-      apkUrl: URL.createObjectURL(apkFile),
-      zipUrl: zipFile ? URL.createObjectURL(zipFile) : null,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      setStatus('uploading');
+      const fd = new FormData();
+      fd.append('name', name);
+      if (desc) fd.append('description', desc);
+      fd.append('apk', apkFile);
+      if (zipFile) fd.append('zipfile', zipFile);
 
-    onAddApp(newApp);
-    setStatus('success');
-    formRef.current?.reset();
-    setName('');
-    setDesc('');
-    setApkFile(null);
-    setZipFile(null);
+      const res = await fetch(`${baseUrl}/apps`, { method: 'POST', body: fd });
+      if (!res.ok) throw new Error('upload failed');
+      const data = await res.json();
+      onAddApp(data);
 
-    setTimeout(() => setStatus('idle'), 3000);
+      setStatus('success');
+      formRef.current?.reset();
+      setName('');
+      setDesc('');
+      setApkFile(null);
+      setZipFile(null);
+      setTimeout(() => setStatus('idle'), 2500);
+    } catch (err) {
+      setStatus('error');
+      setTimeout(() => setStatus('idle'), 3000);
+    }
   };
 
   return (
@@ -105,9 +111,10 @@ export default function UploadSection({ t, onAddApp }) {
             <div className="sm:col-span-2 flex items-center gap-3">
               <button
                 type="submit"
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition"
+                disabled={status === 'uploading'}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition disabled:opacity-70"
               >
-                {t('upload_btn')}
+                {status === 'uploading' ? 'Uploading…' : t('upload_btn')}
               </button>
               {status === 'error' && (
                 <span className="text-sm text-rose-300">{t('upload_error')}</span>
